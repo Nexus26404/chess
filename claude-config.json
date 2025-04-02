@@ -1,0 +1,9 @@
+{
+  "models": {
+    "claude-3-sonnet": {
+      "enabled": true,
+      "default": true,
+      "allowedClients": "*"
+    }
+  }
+}

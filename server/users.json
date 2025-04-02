@@ -1,0 +1,52 @@
+[
+	{
+	  "id": "1",
+	  "username": "test",
+	  "password": "password",
+	  "nickname": "Test Player",
+	  "gamesPlayed": 10,
+	  "wins": 5,
+	  "losses": 3,
+	  "draws": 2
+	},
+	{
+	  "id": "2",
+	  "username": "grandmaster",
+	  "password": "hashedpassword2",
+	  "nickname": "Chess Grand Master",
+	  "gamesPlayed": 150,
+	  "wins": 120,
+	  "losses": 20,
+	  "draws": 10
+	},
+	{
+	  "id": "3",
+	  "username": "beginner123",
+	  "password": "hashedpassword3",
+	  "nickname": "Chess Newbie",
+	  "gamesPlayed": 5,
+	  "wins": 1,
+	  "losses": 4,
+	  "draws": 0
+	},
+	{
+	  "id": "4",
+	  "username": "chessmaster",
+	  "password": "hashedpassword4",
+	  "nickname": "Master of Chess",
+	  "gamesPlayed": 75,
+	  "wins": 45,
+	  "losses": 15,
+	  "draws": 15
+	},
+	{
+	  "id": "5",
+	  "username": "casualplayer",
+	  "password": "hashedpassword5",
+	  "nickname": "Casual Chess Player",
+	  "gamesPlayed": 25,
+	  "wins": 10,
+	  "losses": 10,
+	  "draws": 5
+	}
+]
