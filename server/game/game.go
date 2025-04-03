@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
@@ -11,19 +10,17 @@ import (
 )
 
 const (
-	BoardSize   = 15 // Standard 15x15 board
-	EmptyCell   = 0  // Empty cell
-	BlackPlayer = 1  // Black piece
-	WhitePlayer = 2  // White piece
+	BoardSize = 15 // Standard 15x15 board
 )
 
 var gameStore = make(map[string]*Game)
 
 type Game struct {
+	Room          *Room
 	ID            string
 	Board         [][]int
-	CurrentPlayer int
-	Winner        int
+	CurrentPlayer PlayerTurn
+	Winner        PlayerTurn
 	IsFinished    bool
 }
 
@@ -36,8 +33,8 @@ func NewGame() *Game {
 	game := &Game{
 		ID:            generateGameID(),
 		Board:         board,
-		CurrentPlayer: BlackPlayer,
-		Winner:        EmptyCell,
+		CurrentPlayer: PlayerTurnBlack,
+		Winner:        PlayerTurnNone,
 		IsFinished:    false,
 	}
 	gameStore[game.ID] = game
@@ -45,11 +42,11 @@ func NewGame() *Game {
 }
 
 func (g *Game) MakeMove(row, col int) bool {
-	if row < 0 || row >= BoardSize || col < 0 || col >= BoardSize || g.Board[row][col] != EmptyCell || g.IsFinished {
+	if row < 0 || row >= BoardSize || col < 0 || col >= BoardSize || g.Board[row][col] != int(PlayerTurnNone) || g.IsFinished {
 		return false
 	}
 
-	g.Board[row][col] = g.CurrentPlayer
+	g.Board[row][col] = int(g.CurrentPlayer)
 	if g.checkWin(row, col) {
 		g.Winner = g.CurrentPlayer
 		g.IsFinished = true
@@ -89,6 +86,25 @@ func (g *Game) checkWin(row, col int) bool {
 	return false
 }
 
+func (g *Game) SwitchTurn() {
+	g.Room.mutex.Lock()
+	defer g.Room.mutex.Unlock()
+	if g.CurrentPlayer == PlayerTurnBlack {
+		g.CurrentPlayer = PlayerTurnWhite
+	} else {
+		g.CurrentPlayer = PlayerTurnBlack
+	}
+}
+
+func (r *Room) CanMove(playerID string) bool {
+	for _, player := range r.Players {
+		if player.UserID == playerID {
+			return r.Game.CurrentPlayer == player.Turn
+		}
+	}
+	return false
+}
+
 func isValidPos(row, col int) bool {
 	return row >= 0 && row < BoardSize && col >= 0 && col < BoardSize
 }
@@ -118,6 +134,7 @@ type GameMessage struct {
 	Success    bool       `json:"success"`
 	Error      string     `json:"error,omitempty"`
 	Owner      string     `json:"owner"`
+	RoomName   string     `json:"roomName"` // Add this field
 }
 
 func (g *Game) Reset() {
@@ -125,8 +142,8 @@ func (g *Game) Reset() {
 	for i := range g.Board {
 		g.Board[i] = make([]int, BoardSize)
 	}
-	g.CurrentPlayer = BlackPlayer
-	g.Winner = EmptyCell
+	g.CurrentPlayer = PlayerTurnBlack
+	g.Winner = PlayerTurnNone
 	g.IsFinished = false
 	gameStore[g.ID] = g
 }
@@ -135,8 +152,8 @@ func (r *Room) GetRoomUpdateMessage() GameMessage {
 	return GameMessage{
 		Type:       "room_update",
 		RoomStatus: r.Status,
-		PlayerTurn: r.PlayerTurn,
-		Owner:      r.Owner,
+		PlayerTurn: r.Game.CurrentPlayer,
+		Owner:      r.Owner(),
 	}
 }
 
@@ -145,8 +162,8 @@ func (g *Game) GetUpdateMessage() GameMessage {
 		Type:   "update",
 		GameID: g.ID,
 		Board:  g.Board,
-		Player: g.CurrentPlayer,
-		Winner: g.Winner,
+		Player: int(g.CurrentPlayer),
+		Winner: int(g.Winner),
 	}
 }
 
@@ -167,19 +184,17 @@ func HandleGameWebSocket(c *gin.Context) {
 		log.Printf("WebSocket upgrade failed - Room: %s, User: %s, Error: %s", roomID, userID, err)
 		return
 	}
-	defer ws.Close()
 
 	room.AddConnection(userID, ws)
 	log.Printf("WebSocket connected - Room: %s, User: %s", roomID, userID)
 	defer func() {
+		ws.Close()
 		room.RemoveConnection(userID)
 		log.Printf("WebSocket disconnected - Room: %s, User: %s", roomID, userID)
 	}()
 
 	// Send initial room state
 	ws.WriteJSON(room.GetRoomUpdateMessage())
-
-	room.GetPlayerColor(userID)
 
 	for {
 		var msg GameMessage
@@ -212,15 +227,18 @@ func HandleGameWebSocket(c *gin.Context) {
 			room.Game = game
 			room.SetGameStarted()
 			log.Printf("Game started - Room: %s, Game: %s", roomID, game.ID)
-			room.BroadcastMessage(GameMessage{
-				Type:       "room_update",
+
+			updateMsg := GameMessage{
+				Type:       "game_start",
 				GameID:     game.ID,
 				Board:      game.Board,
-				Player:     game.CurrentPlayer,
+				Player:     int(game.CurrentPlayer),
 				RoomStatus: room.Status,
-				PlayerTurn: room.PlayerTurn,
-				Owner:      room.Owner,
-			})
+				PlayerTurn: game.CurrentPlayer,
+				Owner:      room.Owner(),
+				Success:    true,
+			}
+			room.BroadcastMessage(updateMsg)
 		case "move":
 			if room.Game == nil || !room.CanMove(userID) {
 				log.Printf("Invalid move attempt - Room: %s, User: %s", roomID, userID)
@@ -229,9 +247,9 @@ func HandleGameWebSocket(c *gin.Context) {
 			if room.Game.MakeMove(msg.Row, msg.Col) {
 				log.Printf("Move made - Room: %s, Game: %s, User: %s, Position: [%d,%d]",
 					roomID, room.Game.ID, userID, msg.Row, msg.Col)
-				room.SwitchTurn()
+				room.Game.SwitchTurn()
 				response := room.Game.GetUpdateMessage()
-				response.PlayerTurn = room.PlayerTurn
+				response.PlayerTurn = room.Game.CurrentPlayer
 				room.BroadcastMessage(response)
 			}
 		case "reset":
@@ -252,12 +270,14 @@ func HandleGameWebSocket(c *gin.Context) {
 
 func CreateRoom(c *gin.Context) {
 	userID := c.Query("userId")
+	roomName := c.Query("roomName")
 	room := NewRoom(userID)
-	log.Printf("Room created: %s by user: %s", room.ID, userID)
-	fmt.Println(userID)
+	room.Name = roomName
+	log.Printf("Room created: %s (%s) by user: %s", room.Name, room.ID, userID)
 	c.JSON(http.StatusOK, gin.H{
-		"roomId": room.ID,
-		"player": BlackPlayer,
+		"roomId":   room.ID,
+		"roomName": room.Name,
+		"player":   PlayerTurnBlack,
 	})
 }
 
@@ -282,6 +302,33 @@ func JoinRoom(c *gin.Context) {
 	log.Printf("User %s successfully joined room %s", userID, roomID)
 	c.JSON(http.StatusOK, gin.H{
 		"roomId": room.ID,
-		"player": WhitePlayer,
+		"player": PlayerTurnWhite,
+	})
+}
+
+type RoomInfo struct {
+	ID     string     `json:"id"`
+	Name   string     `json:"name"`
+	Status RoomStatus `json:"status"`
+	Owner  string     `json:"owner"`
+	IsFull bool       `json:"isFull"`
+}
+
+func ListRooms(c *gin.Context) {
+	roomMutex.RLock()
+	rooms := make([]RoomInfo, 0, len(roomStore))
+	for _, room := range roomStore {
+		rooms = append(rooms, RoomInfo{
+			ID:     room.ID,
+			Name:   room.Name,
+			Status: room.Status,
+			Owner:  room.Owner(),
+			IsFull: len(room.Players) >= room.MaxPlayers,
+		})
+	}
+	roomMutex.RUnlock()
+
+	c.JSON(http.StatusOK, gin.H{
+		"rooms": rooms,
 	})
 }

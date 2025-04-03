@@ -2,18 +2,11 @@
 import { onBeforeMount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { http } from '../components/http/http';
-import RoomDialog from '../components/RoomDialog.vue';
 import type { UserInfo } from './game/types';
-
-interface RoomSelection {
-  roomId: string;
-  player: number;
-}
 
 const router = useRouter();
 const user = ref<UserInfo | null>(null);
 const error = ref('');
-const showDialog = ref(false);
 
 async function fetchUserInfo() {
   try {
@@ -31,16 +24,8 @@ async function fetchUserInfo() {
   }
 }
 
-const playNewGame = () => {
-  showDialog.value = true;
-}
-
-const handleRoomSelection = (room: RoomSelection) => {
-  showDialog.value = false;
-  router.push({
-    path: `/game/${room.roomId}`,
-    query: { player: room.player.toString() }
-  });
+const navigateToLobby = () => {
+  router.push('/lobby');
 }
 
 onBeforeMount(() => {
@@ -74,7 +59,7 @@ onBeforeMount(() => {
         </div>
 
         <div class="actions">
-          <button class="btn btn-primary" @click="playNewGame">Play New Game</button>
+          <button class="btn btn-primary" @click="navigateToLobby">Play New Game</button>
           <button class="btn btn-secondary">View Game History</button>
         </div>
       </div>
@@ -83,12 +68,6 @@ onBeforeMount(() => {
         Loading user information...
       </div>
     </div>
-    <RoomDialog 
-      :show="showDialog"
-      :userId="user?.id.toString() ?? ''"
-      @select="handleRoomSelection"
-      @close="showDialog = false"
-    />
   </div>
 </template>
 

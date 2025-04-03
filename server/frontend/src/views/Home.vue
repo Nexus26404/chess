@@ -1,5 +1,11 @@
 <script lang="ts" setup>
-// No script content needed for now
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+
+const navigateToLobby = () => {
+  router.push('/lobby');
+};
 </script>
 
 <template>
@@ -18,7 +24,7 @@
           </ul>
         </div>
         <div class="cta">
-          <button class="btn btn-primary">Start Playing</button>
+          <button class="btn btn-primary" @click="navigateToLobby">Start Playing</button>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import Game from '@/views/game/Game.vue';
 import Home from '@/views/Home.vue';
+import Lobby from '@/views/Lobby.vue';
 import Login from '@/views/Login.vue';
 import NotFound from '@/views/NotFound.vue';
 import User from '@/views/User.vue';
@@ -21,6 +22,11 @@ const routes: Array<RouteRecordRaw> = [
     path: '/user',
     name: 'User',
     component: User
+  },
+  {
+    path: '/lobby',
+    name: 'Lobby',
+    component: Lobby
   },
   {
     path: '/game/:roomId',

@@ -7,6 +7,7 @@
       <div class="logo">Chess Game</div>
       <div class="nav-links">
         <router-link to="/">Home</router-link>
+        <router-link to="/lobby">Lobby</router-link>
         <router-link to="/user">User</router-link>
       </div>
     </div>

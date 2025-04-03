@@ -30,6 +30,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/user/info", auth.AuthMiddleware(), auth.GetUserInfo)
 
 	// Room routes
+	r.GET("/room/list", auth.AuthMiddleware(), game.ListRooms)
 	r.GET("/room/create", auth.AuthMiddleware(), game.CreateRoom)
 	r.GET("/room/join/:roomId", auth.AuthMiddleware(), game.JoinRoom)
 	r.GET("/room/ws/:roomId", auth.AuthMiddleware(), game.HandleGameWebSocket)

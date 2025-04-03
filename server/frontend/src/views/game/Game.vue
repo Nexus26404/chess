@@ -63,7 +63,8 @@ function initializeWebSocket() {
 
   ws.value.onmessage = (event) => {
     const data = JSON.parse(event.data);
-
+    console.log(data);
+    
     if (data.type === 'update') {
       board.value = data.board;
       currentPlayer.value = data.player;
